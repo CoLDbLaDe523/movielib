@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Главная</title>
+</head>
+<body>
+    <h1>🎬 Онлайн-кинотеатр</h1>
+    <hr>
+
+    {% if user %}
+        <p>Вы вошли как <b>{{ user }}</b></p>
+        <form action="/logout" method="post">
+            <button type="submit">Выйти</button>
+        </form>
+        <p>
+            <a href="/profile">Мой профиль</a> |
+            <a href="/movies">Фильмы</a>
+        </p>
+    {% else %}
+        <p>Вы не авторизованы</p>
+        <p>
+            <a href="/login">Войти</a> |
+            <a href="/register">Регистрация</a>
+        </p>
+    {% endif %}
+</body>
+</html>
