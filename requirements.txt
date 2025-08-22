@@ -5,4 +5,4 @@ pydantic
 python-jose
 passlib
 jinja2
-starlette
+python-dotenv
