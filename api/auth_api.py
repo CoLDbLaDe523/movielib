@@ -1,17 +1,12 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Form, Response, Request
+from fastapi import APIRouter, Depends, HTTPException, Form, Response, Request
 from sqlalchemy.orm import Session
-from fastapi.responses import RedirectResponse, HTMLResponse
 from database import models, data_base
 from api import utils_api
-from pydantic import BaseModel
 from jose import JWTError, jwt
-from urllib.parse import quote
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import JSONResponse
 
 
 router = APIRouter()
-
-templates = Jinja2Templates(directory="templates")
 
 
 def get_user_by_username(db: Session, username: str):
@@ -33,11 +28,6 @@ def get_current_user(request: Request, db: Session = Depends(data_base.get_db)):
     return get_user_by_username(db, username=username)
 
 
-class LoginRequest(BaseModel):
-    username: str
-    password: str
-
-
 @router.post("/register")
 def register(
         username: str = Form(...),
@@ -47,7 +37,7 @@ def register(
 ):
     db_user = get_user_by_username(db, username)
     if db_user:
-        raise HTTPException(status_code=400, detail="Username already registered")
+        raise HTTPException(status_code=400, detail="Пользователь с таким именем уже зарегистрирован")
 
     hashed_password = utils_api.get_password_hash(password)
     new_user = models.User(username=username, email=email, hashed_password=hashed_password, role="user")
@@ -57,14 +47,14 @@ def register(
 
     access_token = utils_api.create_access_token(data={"sub": new_user.username})
 
-    response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie(key="access_token", value=access_token, httponly=True, samesite="lax")
-    response.set_cookie(key="username", value=new_user.username)
-
-    flash_message = quote("Регистрация прошла успешно!")
-    response.set_cookie(key="flash_message", value=flash_message, max_age=5)
-
-    return response
+    return JSONResponse(
+        status_code=201,
+        content={
+            "message": "Аккаунт успешно зарегистрирован",
+            "username": new_user.username,
+            "token": access_token
+        }
+    )
 
 
 @router.post("/login")
@@ -78,26 +68,26 @@ def login(
         raise HTTPException(status_code=400, detail="Invalid credentials")
 
     access_token = utils_api.create_access_token(data={"sub": user.username})
-    response = RedirectResponse(url="/", status_code=303)
-    response.set_cookie(key="access_token", value=access_token, httponly=True, max_age=60*60*24, samesite="lax")
-    response.set_cookie(key="username", value=user.username)
-    return response
+
+    return JSONResponse(
+        status_code=200,
+        content={
+            "message": "Успешный вход",
+            "username": user.username,
+            "token": access_token
+        }
+    )
 
 
-@router.get("/login", response_class=HTMLResponse)
-def login_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("login.html", {"request": request, "user": user})
-
-
-@router.get("/register", response_class=HTMLResponse)
-def register_page(request: Request, user=Depends(get_current_user)):
-    return templates.TemplateResponse("register.html", {"request": request, "user": user})
-
-
-@router.get("/logout")
-def logout():
-    response = RedirectResponse(url="/", status_code=303)
+@router.post("/logout")
+def logout(response: Response):
+    # Удаляем куки
     response.delete_cookie("access_token")
     response.delete_cookie("username")
-    return response
+
+    return JSONResponse(
+        status_code=200,
+        content={"message": "Вы успешно вышли из системы"}
+    )
+
 
